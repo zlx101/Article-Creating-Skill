@@ -1,0 +1,21 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本地试跑产物与打包件（不入库）
+dist/
+*.zip
+*.tmp
+
+# 编辑器与本地配置
+.idea/
+.vscode/
+*.swp

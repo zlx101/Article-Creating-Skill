@@ -1,0 +1,4 @@
+interface:
+  display_name: "内容创作（通用版）"
+  short_description: "平台参数化的原创内容创作：先定角度和思路，再出成稿、候选标题与发布前质检。"
+  default_prompt: "Use article-creating to turn my idea into an original piece: propose 2-6 angles and wait for my pick, draft after I confirm the outline, then give title options and a pre-publish quality check for my target platform."
