@@ -80,6 +80,10 @@ QUOTE_RE = re.compile(r'["\']')
 EMOJI_RE = re.compile(
     "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F0FF\uFE0F]"
 )
+# 先否定再肯定的对偶句：先否定一项、随即用「而是/，是」肯定另一项
+ANTITHESIS_RE = re.compile(
+    r"(?:不是|并非|不在于)[^。！？；\n]{1,30}(?:而是|，\s*是|,\s*是)"
+)
 TITLE_LINE_RE = re.compile(r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|")
 
 
@@ -225,6 +229,15 @@ def check(text: str, profile_key: str):
             if word in ending:
                 add(issues, "WARN", "ENDING", f"结尾出现套话「{word}」，换成具体动作或判断")
                 break
+
+    # 先否定再肯定的对偶句
+    for line_no, para in paras:
+        for m in ANTITHESIS_RE.finditer(para):
+            snippet = m.group(0)
+            add(
+                issues, "FAIL", "ANTITHESIS",
+                f"第 {line_no} 行用了先否定再肯定的对偶句：「{snippet[:24]}…」，拆成两句陈述",
+            )
 
     # 英文引号
     for line_no, para in paras:
