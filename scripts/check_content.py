@@ -19,40 +19,41 @@ import sys
 from pathlib import Path
 
 # 与 references/platform-profiles.md 保持一致；改这里必须同步改文档
+# 段上限 = 单行字数 × 2（两行规则，见 references/writing-rules.md 第六节）
 PROFILES = {
     "generic": {
-        "label": "通用长文",
-        "paragraph": 200, "sentence": 60, "titles": 6, "title_len": 18,
+        "label": "通用长文", "line_chars": 25,
+        "sentence": 60, "titles": 6, "title_len": 18,
         "length": (1000, 2500), "bold_per": 300, "emoji": "forbid", "emoji_max": 0,
     },
     "wechat": {
-        "label": "公众号",
-        "paragraph": 200, "sentence": 60, "titles": 6, "title_len": 18,
+        "label": "公众号", "line_chars": 25,
+        "sentence": 60, "titles": 6, "title_len": 18,
         "length": (1000, 2500), "bold_per": 300, "emoji": "forbid", "emoji_max": 0,
     },
     "zhihu": {
-        "label": "知乎",
-        "paragraph": 250, "sentence": 70, "titles": 3, "title_len": 25,
+        "label": "知乎", "line_chars": 30,
+        "sentence": 70, "titles": 3, "title_len": 25,
         "length": (1500, 3000), "bold_per": 400, "emoji": "forbid", "emoji_max": 0,
     },
     "xiaohongshu": {
-        "label": "小红书",
-        "paragraph": 80, "sentence": 40, "titles": 3, "title_len": 20,
+        "label": "小红书", "line_chars": 18,
+        "sentence": 40, "titles": 3, "title_len": 20,
         "length": (600, 1000), "bold_per": 300, "emoji": "allow", "emoji_max": 5,
     },
     "toutiao": {
-        "label": "头条/百家号",
-        "paragraph": 150, "sentence": 50, "titles": 5, "title_len": 30,
+        "label": "头条/百家号", "line_chars": 28,
+        "sentence": 50, "titles": 5, "title_len": 30,
         "length": (800, 1500), "bold_per": 250, "emoji": "forbid", "emoji_max": 0,
     },
     "blog": {
-        "label": "博客/技术专栏",
-        "paragraph": 250, "sentence": 70, "titles": 3, "title_len": 40,
+        "label": "博客/技术专栏", "line_chars": 32,
+        "sentence": 70, "titles": 3, "title_len": 40,
         "length": (1500, 3000), "bold_per": 400, "emoji": "forbid", "emoji_max": 0,
     },
     "newsletter": {
-        "label": "Newsletter",
-        "paragraph": 180, "sentence": 60, "titles": 3, "title_len": 25,
+        "label": "Newsletter", "line_chars": 28,
+        "sentence": 60, "titles": 3, "title_len": 25,
         "length": (2000, 4000), "bold_per": 400, "emoji": "forbid", "emoji_max": 0,
     },
 }
@@ -85,6 +86,15 @@ ANTITHESIS_RE = re.compile(
     r"(?:不是|并非|不在于)[^。！？；\n]{1,30}(?:而是|，\s*是|,\s*是)"
 )
 TITLE_LINE_RE = re.compile(r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|")
+
+# 机械连接词：只标位置不给信息，见 references/writing-rules.md 第一节
+MECH_CONNECTIVES = (
+    "首先", "其次", "再次", "最后", "然后", "接下来",
+    "另一方面", "与此同时", "综上所述", "总的来说", "总之",
+)
+# 正文禁用字符，见 references/writing-rules.md 第五节
+BANNED_CHARS = ("「", "」", "——", "---", ">")
+NUM_RANGE_RE = re.compile(r"\d\s*-\s*\d")
 
 
 def count_cjk(text: str) -> int:
@@ -150,6 +160,48 @@ def parse_title_table(text: str):
     return rows
 
 
+def split_sentences(para: str):
+    return [s.strip() for s in SENT_SPLIT_RE.split(para) if count_cjk(s.strip()) >= 2]
+
+
+def check_banned_chars(para: str, line_no: int, issues) -> None:
+    """正文禁用字符。加粗语法 **...** 先剥掉，不算正文符号。"""
+    body = BOLD_RE.sub("", para)
+    for ch in BANNED_CHARS:
+        if ch in body:
+            add(issues, "FAIL", "BANNED", f"第 {line_no} 行出现禁用字符 {ch}")
+    if "*" in body:
+        add(issues, "FAIL", "BANNED", f"第 {line_no} 行出现单星号，列表与强调都不许用")
+    if "-" in body:
+        if NUM_RANGE_RE.search(body):
+            add(issues, "WARN", "BANNED", f"第 {line_no} 行数字范围用了横线，改写成到或至")
+        else:
+            add(issues, "FAIL", "BANNED", f"第 {line_no} 行出现连字符，列表符不许用")
+
+
+def check_connectives(sents, line_no: int, issues) -> None:
+    """机械连接词出现在句首或段首即判，不看全篇频率。"""
+    for s in sents:
+        for word in MECH_CONNECTIVES:
+            if s.startswith(word):
+                add(issues, "FAIL", "CONNECTIVE", f"第 {line_no} 行以机械连接词开头：{word}")
+                break
+
+
+def check_rhythm(sents, line_no: int, issues) -> None:
+    """连续短句与句式过于整齐，两类都要看。"""
+    lens = [count_cjk(s) for s in sents]
+    for i in range(len(lens) - 2):
+        window = lens[i:i + 3]
+        if min(window) >= 4 and max(window) - min(window) <= 1:
+            add(issues, "WARN", "RHYTHM", f"第 {line_no} 行连续三句长度接近（{window}），句式过于整齐")
+            break
+    for i in range(len(lens) - 3):
+        if all(n < 12 for n in lens[i:i + 4]):
+            add(issues, "WARN", "RHYTHM", f"第 {line_no} 行连续四句都不足 12 字，像电报体")
+            break
+
+
 def add(issues, level, code, message):
     issues.append((level, code, message))
 
@@ -174,14 +226,24 @@ def check(text: str, profile_key: str):
         if n >= 2:
             add(issues, "WARN", "B-LEVEL", f"B 级过渡「{word}」出现 {n} 次")
 
-    # 段落长度
-    limit = profile["paragraph"]
+    # 段落长度：两行是硬规则，超一成记 WARN，超四成记 FAIL
+    limit = profile["line_chars"] * 2
     for line_no, para in paras:
         n = count_cjk(para)
-        if n > limit * 1.5:
-            add(issues, "FAIL", "PARA", f"第 {line_no} 行段落 {n} 字，超过平台上限 {limit} 字的 1.5 倍")
+        if n > limit * 1.4:
+            add(issues, "FAIL", "PARA", f"第 {line_no} 行段落 {n} 字，超过两行上限 {limit} 字四成以上")
         elif n > limit:
-            add(issues, "WARN", "PARA", f"第 {line_no} 行段落 {n} 字，超过平台上限 {limit} 字")
+            add(issues, "WARN", "PARA", f"第 {line_no} 行段落 {n} 字，略超两行上限 {limit} 字")
+
+    # 禁用字符
+    for line_no, para in paras:
+        check_banned_chars(para, line_no, issues)
+
+    # 机械连接词与句式节奏
+    for line_no, para in paras:
+        sents = split_sentences(para)
+        check_connectives(sents, line_no, issues)
+        check_rhythm(sents, line_no, issues)
 
     # 句长
     s_limit = profile["sentence"]
@@ -270,9 +332,9 @@ def main() -> int:
         for key in sorted(PROFILES):
             p = PROFILES[key]
             print(
-                f"{key:12s} {p['label']:10s} 段≤{p['paragraph']} 句≤{p['sentence']} "
-                f"标题{p['titles']}个/≤{p['title_len']}字 篇长{p['length'][0]}-{p['length'][1]} "
-                f"表情{p['emoji']}"
+                f"{key:12s} {p['label']:10s} 段≤{p['line_chars'] * 2}字(两行) "
+                f"句≤{p['sentence']} 标题{p['titles']}个/≤{p['title_len']}字 "
+                f"篇长{p['length'][0]}-{p['length'][1]} 表情{p['emoji']}"
             )
         return 0
 
