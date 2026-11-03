@@ -103,12 +103,14 @@ templates/
 examples/
   dialogue-demo.md            一次完整对话怎么走
   platform-samples.md         同一判断写成公众号/小红书/知乎三稿
-  ai-tone-rewrite.md          10 组 AI 腔对照
+  ai-tone-rewrite.md          12 组 AI 腔对照
+agents/
+  openai.yaml                 OpenAI 系客户端的界面元数据
 scripts/
   check_content.py            按平台档检查结构、语言、标题
   originality_diff.py         与素材原文的连续字重合检测
 evals/
-  trigger-cases.json          命中/改写/排除/近邻用例
+  trigger-cases.json          命中/改写/排除/近邻用例与写文规则正反例
 ```
 
 ## 脚本
@@ -133,8 +135,8 @@ python scripts/originality_diff.py --draft 成稿.md --source 原文.md
 
 如实说明，避免把设计预期当成已验证效果：
 
-- **工程账**：结构、命名、相对链接、包内文件已核对；未对脚本做真实运行测试。
-- **质量账**：触发用例已写入 `evals/trigger-cases.json`（命中 / 同义改写 / 排除 / 近邻），尚未跑真实提示词回归。
+- **工程账**：结构、命名、相对链接、包内文件已核对；`check_content.py` 与 `originality_diff.py` 已通过语法编译，并在一份示例成稿上做过代表性运行（公众号与通用档 FAIL 为 0）。
+- **质量账**：触发用例已写入 `evals/trigger-cases.json`（命中 / 同义改写 / 排除 / 近邻），另附写文规则正反例；尚未跑真实提示词回归，也未做多客户端安装验证。
 - **对外账**：未做真实发布与读者反馈；平台参数来自各平台公开的发布规范与常见实践，未逐平台实测，属 `missing evidence`。
 
 ## 许可
