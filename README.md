@@ -32,11 +32,17 @@
 
 ### 方式一：作为目录使用
 
-把整个仓库放到客户端的 skills 目录下，目录名即技能名：
+把仓库克隆到客户端的 skills 目录，目录名保持 `article-creating-skill`（与 frontmatter 的 `name: article-creating` 相差 `-skill` 后缀，属于允许写法），也可以直接改名为 `article-creating`：
 
 ```text
-~/.cursor/skills/article-creating/SKILL.md        # Cursor
-~/.claude/skills/article-creating/SKILL.md        # Claude Code
+git clone https://github.com/zlx101/Article-Creating-Skill.git ~/.cursor/skills/article-creating-skill
+```
+
+加载路径：
+
+```text
+~/.cursor/skills/article-creating-skill/SKILL.md   # Cursor
+~/.claude/skills/article-creating/SKILL.md         # Claude Code（改名为 article-creating）
 ```
 
 `SKILL.md` 必须在技能根目录，文件名大小写敏感。
